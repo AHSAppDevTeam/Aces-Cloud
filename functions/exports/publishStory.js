@@ -148,7 +148,7 @@ async function categoryThumbnail(categoryID){
 	.map( id => snippets[id] )
 	.filter( snippet => 'thumbURLs' in snippet ) // select articles with images
 	.sort( (a,b) => b.featured - a.featured ) // prioritize featured articles
-	.slice(0, 3) // trim to first 4 articles
+	.slice(0, 4) // trim to first 4 articles
 	.map( snippet => snippet.thumbURLs[0] ) // map to image array
 	dbSet([...path,'thumbURLs'], thumbURLs )
 }
