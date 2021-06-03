@@ -17,7 +17,7 @@ exports.publishStory = async ( change, { params: { storyID }, authType, auth } )
 	if (someIn(changes,'categoryID') && 'categoryID' in before)
 		categoryStoryIDs(before.categoryID,storyID,false)
 
-	if (someIn(changes,'timestamp','categoryID'))
+	if (someIn(changes,'timestamp','categoryID') && 'categoryID' in after)
 		categoryStoryIDs(after.categoryID,storyID,true)
 
 	// update featured category
@@ -39,7 +39,7 @@ exports.publishStory = async ( change, { params: { storyID }, authType, auth } )
 		categoryThumbnail(after.categoryID)
 		
 	// find similar storys
-	if (someIn(changes,'title'))
+	if (someIn(changes,'title') && 'title' in after)
 		relatedStoryIDs(after,storyID)
 	
 	// clone story into various places
