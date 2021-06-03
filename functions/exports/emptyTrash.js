@@ -3,7 +3,7 @@ const { dbGet, dbSet } = require('../utils/database')
 exports.emptyTrash = async () => {
 	const now = Math.trunc(Date.now()/1000)
 	const storys = await dbGet('storys')
-	const path = 'categories/Trash/ArticleIDs'
+	const path = 'categories/Trash/articleIDs'
 	const storyIDs = await dbGet(path)
 	dbSet( path, storyIDs.filter( id =>
 		now
