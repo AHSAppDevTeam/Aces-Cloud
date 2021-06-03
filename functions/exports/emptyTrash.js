@@ -5,7 +5,7 @@ exports.emptyTrash = async () => {
 	const storys = await dbGet('storys')
 	const path = 'categories/Trash/articleIDs'
 	const storyIDs = await dbGet(path)
-	dbSet( path, storyIDs.filter( id =>
+	if(storyIDs) dbSet( path, storyIDs.filter( id =>
 		now
 		- (storys[id].editTimestamp || storys[id].timestamp)
 		< 7*24*60*60
