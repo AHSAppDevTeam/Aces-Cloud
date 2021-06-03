@@ -1,5 +1,6 @@
 const { discord } = require('../utils/discord')
 const { dbGet, dbSet } = require('../utils/database')
+const fetch = require('node-fetch')
 
 exports.publishNotif = async () => {
 	const now = Math.trunc(Date.now()/1000)
@@ -14,7 +15,7 @@ exports.publishNotif = async () => {
 	const readyNotifIDs = readyNotifs.map(
 		([id, notif]) => id
 	)
-	log(`saw ${readyNotifIDs.length} notifs ready to be sent`)
+	console.log(`saw ${readyNotifIDs.length} notifs ready to be sent`)
 	readyNotifs.forEach( ([id, notif]) => {
 		dbSet( ['notifs',id,'notifTimestamp'], now )
 		pushNotif(id, notif)
@@ -24,7 +25,7 @@ exports.publishNotif = async () => {
 			title: '🔔 ' + notif.title,
 			description: notif.blurb
 		})
-		log(`sent <${id}>: ${notif.title}`)
+		console.log(`sent <${id}>: ${notif.title}`)
 	})
 	dbSet( 'notifIDs', sentNotifIDs.concat(readyNotifIDs) )
 }
