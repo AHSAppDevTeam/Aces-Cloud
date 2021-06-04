@@ -1,94 +1,124 @@
-const { discord } = require('../utils/discord')
-const { dbGet, dbSet, dbSetLegacy, auth } = require('../utils/database')
-const { diff, formattedDiff, someIn, allIn } = require('../utils/objects')
-const levenshtein = require('js-levenshtein')
 
-exports.publishStory = async ( change, { params: { storyID }, authType, auth } ) => {
+const { getDb, setDb, setDbLegacy, getPathLegacy, auth } = require('../utils/database')
+const { diff, formattedDiff, someIn } = require('../utils/objects')
+const { getRelatedStoryIDs } = require('../utils/related')
+
+
+
+exports.publishStory = async ( change, { params: { storyID } } ) => {
 
 	const before = change.before.val() || {}
 	const after = change.after.val() || {}
 	const changes = diff(before,after)
 
-	const categories = await dbGet('categories')
-
 	if (changes.length === 0) return
 
-	// update categories
+	const db = Object.fromEntries(
+		await Promise.all(['categories','snippets','schemas','notifIDs']
+		.map(key=>Promise.all([key,getDb(key)])))
+	)
+
+	setMirrors({
+		schemas: db.schemas,
+		story: after,
+		storyID
+	})
+
+	if (someIn(changes,'visible'))
+		Promise.all(
+			after.relatedStoryIDs
+			.filter(id=>id in snippets)
+			.map(id=>
+				getRelatedStoryIDs(snippets[id],id)
+				.then(storyIDs=>setDb(['storys',id,'relatedArticleIDs'],storyIDs))
+			)
+		)
+	
+	// set categories
 	if (someIn(changes,'categoryID') && 'categoryID' in before)
-		categoryStoryIDs(before.categoryID,storyID,false)
+		setCategoryStoryIDs({
+			categories: db.categories,
+			snippets: db.snippets,
+			categoryID: before.categoryID,
+			storyID,
+			insert: false,
+		})
 
 	if (someIn(changes,'timestamp','categoryID') && 'categoryID' in after)
-		categoryStoryIDs(after.categoryID,storyID,true)
+		setCategoryStoryIDs({
+			categories: db.categories,
+			snippets: db.snippets,
+			categoryID: after.categoryID,
+			storyID,
+			insert: true,
+		})
 
-	// update featured category
+	// set featured category
 	if (someIn(changes,'featured') && 'featured' in before)
-		categoryStoryIDs(
-			'Featured', storyID,
-			after.featured && categories[after.categoryID].visible
-		)
+		setCategoryStoryIDs({
+			categories: db.categories,
+			snippets: db.snippets,
+			categoryID: 'Featured',
+			storyID,
+			insert: story.featured && story.visible,
+		})
 
 	// remove notification if unnotified
 	if (someIn(changes,'notified') && before.notified)
-		removeNotif(storyID)
+		removeNotif({
+			notifIDs: db.notifIDs,
+			storyID,
+		})
 
-	// update thumbnails
+	// set thumbnails
 	if (someIn(changes,'categoryID'))
-		categoryThumbnail(before.categoryID)
+		setCategoryThumbURLs({
+			categories: db.categories,
+			snippets: db.snippets,
+			categoryID: before.categoryID,
+		})
 	
 	if (someIn(changes,'featured','timestamp','thumbURLs','categoryID'))
-		categoryThumbnail(after.categoryID)
-		
-	// find similar storys
-	if (someIn(changes,'title') && 'title' in after)
-		relatedStoryIDs(after,storyID)
-	
-	// clone story into various places
-	mirrorStory(after,storyID,changes)
-	legacyStory(after,storyID,changes)
-
-	// log to discord
-	const user = authType === 'ADMIN'
-	? 'Aces Cloud'
-	: authType === 'USER'
-	? await idToEmail(auth.uid)
-	: 'Anonymous'
-	
-	discord({
-		author: user,
-		id: storyID, 
-		title: '✏️ ' + after.title, 
-		description: formattedDiff(before,after),
-	})
-}
-
-/**
- * Sets an article with 4 related ones
- * @param {Object} story 
- * @param {string} storyID 
- * @returns {Promise}
- */
-async function relatedStoryIDs(story,storyID){
-	const snippets = await dbGet('snippets')
-	const categories = await dbGet('categories')
-	const title = story.title + ' '
-	const relatedArticleIDs = Object.keys(snippets)
-	.filter( id => ( id !== storyID ) && categories[snippets[id].categoryID]?.visible )
-	.sort( ( a, b ) =>
-		levenshtein( snippets[a].title + ' ', title ) -
-		levenshtein( snippets[b].title + ' ', title )
-	)
-	.slice( 0, 4 )
-	dbSet(['storys',storyID,'relatedArticleIDs'], relatedArticleIDs)
-	return
+		setCategoryThumbURLs({
+			categoryID: after.categoryID,
+			snippets: db.snippets,
+		})
 }
 
 /**
  * Mirrors a story into objects which have less properties & are quicker to access
- * @param {Object} story 
- * @param {string} storyID 
- */
-async function mirrorStory(story,storyID,changes){
-	const schemas = await dbGet('schemas')
+ * @param {Object} obj
+ * @param {Object} obj.schemas
+ * @param {Object} obj.story 
+ * @param {string} obj.storyID 
+ * @param {string[]} obj.changes
+*/
+async function setMirrors({schemas,story,storyID}){
+	const mirrors = ['article','snippet']
+	if(story.notified) mirrors.push('notif')
+	for(const type of mirrors){
+		const schema = Object.keys(schemas[type])
+		if(someIn(schema,changes)) continue
+		const mirror = Object.fromEntries(
+			Object.entries(after).filter(([key])=>schema.includes(key))
+		)
+		setDb( [type+'s',storyID], mirror )
+	}
+	setDbLegacy(
+		await getPathLegacy(story.categoryID,storyID),
+		{
+			...Object.fromEntries(
+				Object.entries(after)
+				.filter(([key])=>key in schemas.legacy)
+				.map(([key,value]) => [schemas.legacy[key],value])
+			),
+			...{
+				hasHTML: true,
+			}
+		}
+	)
+}
+ async function setMirrors({schemas,story,storyID,changes}){
 	const mirrors = ['article','snippet']
 	if(story.notified) mirrors.push('notif')
 	for(const type of mirrors){
@@ -97,96 +127,55 @@ async function mirrorStory(story,storyID,changes){
 		const mirror = Object.fromEntries(
 			Object.entries(story).filter(([key])=>schema.includes(key))
 		)
-		dbSet( [type+'s',storyID], mirror )
+		setDb( [type+'s',storyID], mirror )
 	}
-}
-
-/**
- * Mirrors a story into the legacy database
- * @param {Object} story 
- * @param {story} storyID 
- */
-async function legacyStory(story,storyID){
-	const schemas = await dbGet('schemas')
-	const legacyStory = {
-		...Object.fromEntries(
-			Object.entries(story)
-			.filter(([key])=>key in schemas.legacy)
-			.map(([key,value]) => [schemas.legacy[key],value])
-		),
-		...{
-			hasHTML: true,
-		}
-	}
-	dbSetLegacy(await legacyPath(story.categoryID,storyID),legacyStory)
-}
-
-/**
- * Get the path of a story in a legacy database
- * @param {string} categoryID 
- * @returns {string}
- */
- async function legacyPath(categoryID,storyID){
-	return [
-		Object.entries(await dbGet('locations')).find(
-			([,{categoryIDs}]) => categoryIDs.includes(categoryID)
-		)[0],
-		categoryID,
-		storyID,
-	]
 }
 
 /**
  * Generates thumbnails for a category
- * @param {string} categoryID 
+ * @param {Object} obj
+ * @param {Object} obj.snippets
+ * @param {Object} obj.categories
+ * @param {string} obj.categoryID 
  */
-async function categoryThumbnail(categoryID){
-	const path = ['categories',categoryID]
-	const storyIDs = await dbGet([...path,'articleIDs']) || []
-	const snippets = await dbGet('snippets') || []
-	const thumbURLs = storyIDs
+async function setCategoryThumbURLs({categories,snippets,categoryID}){
+	const thumbURLs = categories[categoryID]
+	.articleIDs
 	.map( id => snippets[id] )
 	.filter( snippet => 'thumbURLs' in snippet ) // select articles with images
 	.sort( (a,b) => b.featured - a.featured ) // prioritize featured articles
 	.slice(0, 4) // trim to first 4 articles
 	.map( snippet => snippet.thumbURLs[0] ) // map to image array
-	dbSet([...path,'thumbURLs'], thumbURLs )
+	return setDb(['categories',categoryID,'thumbURLs'], thumbURLs )
 }
 
 /**
  * Adds or removes a story to a category's articleIDs collection
- * @param {string} categoryID 
- * @param {string} storyID 
- * @param {Boolean} insert 
+ * @param {Object} obj
+ * @param {Object} obj.categories
+ * @param {Object} obj.snippets
+ * @param {string} obj.categoryID
+ * @param {string} obj.storyID
+ * @param {Boolean} obj.insert
  */
-async function categoryStoryIDs(categoryID,storyID,insert){
-	const path = ['categories',categoryID,'articleIDs']
-	let storyIDs = await dbGet(path) || []
+async function setCategoryStoryIDs({categories,snippets,categoryID,storyID,insert}){
+	let storyIDs = categories[categoryID].articleIDs || []
 	storyIDs = storyIDs.filter(x=>x!==storyID)
 	if (insert) {
-		const snippets = await dbGet('snippets') || []
 		const index = storyIDs.findIndex(id=>snippets[id].timestamp < snippets[storyID].timestamp)
 		index < 0 ? storyIDs.push(storyID) : storyIDs.splice(index,0,storyID)
 	} else {
-		dbSetLegacy(await legacyPath(categoryID,storyID),null)
+		setDbLegacy(await getPathLegacy(categoryID,storyID),null)
 	}
-	dbSet(path,storyIDs)
+	return setDb(['categories',categoryID,'articleIDs'],storyIDs)
 }
 
 /**
  * Remove a story from the notification list
- * @param {String} storyID 
+ * @param {Object} obj
+ * @param {string} obj.storyID
+ * @param {string} obj.notifIDs 
  */
-async function removeNotif(storyID){
-	dbSet('notifIDs',(await dbGet('notifIDs')).filter(x=>x!==storyID))
+async function removeNotif({storyID,notifIDs}){
+	setDb('notifIDs',notifIDs.filter(x=>x!==storyID))
 }
-/**
- * Converts a user's ID into their email
- * @param {String} uid 
- * @returns {String} email
- */
-async function idToEmail(uid){
-	const user = await auth.getUser(uid)
-	return user.email || ''
-}
-

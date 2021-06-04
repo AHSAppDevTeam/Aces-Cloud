@@ -1,6 +1,6 @@
 const fetch = require('node-fetch')
 const FormData = require('form-data')
-const { dbGet } = require('./database')
+const { getDb } = require('./database')
 
 /**
  * Uploads an image to ImgBB.com
@@ -12,7 +12,7 @@ exports.imgbb = async ( url ) => {
 		const body = new FormData()
 		body.append('image', url)
 		const response = await fetch(
-			'https://' + await dbGet('secrets/imgbb-aces-cloud'),
+			'https://' + await getDb('secrets/imgbb-aces-cloud'),
 			{ method: 'POST', body }
 		)
 		const { data: { image, medium, thumb } } = await response.json()

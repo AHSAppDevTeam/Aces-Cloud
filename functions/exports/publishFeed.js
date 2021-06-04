@@ -1,26 +1,24 @@
 const { discord } = require('../utils/discord')
-const { dbGet, dbSet } = require('../utils/database')
+const { getDb, setDb } = require('../utils/database')
 const { id } = require('../utils/id')
-const { templateStory } = require('../utils/templateStory')
+const { templateFromSchema } = require('../utils/template')
 
 const fetch = require('node-fetch')
 const DOMParser = require('dom-parser')
 const Turndown = require('turndown')
-const marked = require('marked')
 const { imgbb } = require('../utils/imgbb')
 
 const parser = new DOMParser()
 const turned = new Turndown()
 const parse_xml = str => parser.parseFromString(str)
 const html_to_md = html => turned.turndown(html)
-const md_to_html = md => marked(md)
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
  
 exports.publishFeed = async () => {
 	
-	const feeds = await dbGet('feeds')
-	const template = await templateStory()
+	const feeds = await getDb('feeds')
+	const template = await templateFromSchema('input')
 
 	for (const key in feeds) {
 
@@ -58,7 +56,7 @@ exports.publishFeed = async () => {
 			// fill with template and older versions of the story
 			story = {
 				...template,
-				...await dbGet(['storys',storyID]) || {},
+				...await getDb(['inputs',storyID]) || {},
 				...story,
 				categoryID: key,
 				timestamp: Math.trunc(Date.parse(story.date)/1000),
@@ -68,9 +66,6 @@ exports.publishFeed = async () => {
 			// find image tags from the story
 			story.imageURLs = story.body.match(/(?<=\<img src\=['"]).*?(?=['"].*?\>)/g) || []
 			
-			// re-render a cleaner body from markdown
-			story.body = md_to_html(story.markdown)
-
 			// org-specific fixes
 			switch(key){
 				case 'APN':
@@ -104,7 +99,7 @@ exports.publishFeed = async () => {
 			)
 
 			// publish
-			dbSet(['storys',storyID],story)
+			setDb(['inputs',storyID],story)
 		}
 	}
 }

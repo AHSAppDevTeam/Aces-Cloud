@@ -1,11 +1,11 @@
 const { discord } = require('../utils/discord')
-const { dbGet, dbSet } = require('../utils/database')
+const { getDb, setDb } = require('../utils/database')
 const fetch = require('node-fetch')
 
 exports.publishNotif = async () => {
 	const now = Math.trunc(Date.now()/1000)
-	const sentNotifIDs = await dbGet('notifIDs') || []
-	const allNotifs = Object.entries( await dbGet('notifs') || {} )
+	const sentNotifIDs = await getDb('notifIDs') || []
+	const allNotifs = Object.entries( await getDb('notifs') || {} )
 	const readyNotifs = allNotifs.filter(
 		([id, notif]) =>
 		!sentNotifIDs.includes(id)
@@ -17,7 +17,7 @@ exports.publishNotif = async () => {
 	)
 	console.log(`saw ${readyNotifIDs.length} notifs ready to be sent`)
 	readyNotifs.forEach( ([id, notif]) => {
-		dbSet( ['notifs',id,'notifTimestamp'], now )
+		setDb( ['notifs',id,'notifTimestamp'], now )
 		pushNotif(id, notif)
 		discord({
 			author: '',
@@ -27,7 +27,7 @@ exports.publishNotif = async () => {
 		})
 		console.log(`sent <${id}>: ${notif.title}`)
 	})
-	dbSet( 'notifIDs', sentNotifIDs.concat(readyNotifIDs) )
+	setDb( 'notifIDs', sentNotifIDs.concat(readyNotifIDs) )
 }
 
 /**
@@ -36,7 +36,7 @@ exports.publishNotif = async () => {
  * @param {Object} notif 
  */
 async function pushNotif(id, notif) {
-	const auth = await dbGet('secrets/messaging')
+	const auth = await getDb('secrets/messaging')
 	let payloads = [{
 		notification: {
 			title: notif.title,
