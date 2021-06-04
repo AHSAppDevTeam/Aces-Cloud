@@ -21,12 +21,13 @@ exports.publishStory = async ( change, { params: { storyID } } ) => {
 	setMirrors({
 		schemas: db.schemas,
 		story: after,
-		storyID
+		storyID,
+		changes,
 	})
 
 	if (someIn(changes,'visible'))
 		Promise.all(
-			after.relatedStoryIDs
+			(after.relatedStoryIDs || [])
 			.filter(id=>id in snippets)
 			.map(id=>
 				getRelatedStoryIDs(snippets[id],id)
@@ -60,7 +61,7 @@ exports.publishStory = async ( change, { params: { storyID } } ) => {
 			snippets: db.snippets,
 			categoryID: 'Featured',
 			storyID,
-			insert: story.featured && story.visible,
+			insert: after.featured && after.visible,
 		})
 
 	// remove notification if unnotified
@@ -80,8 +81,9 @@ exports.publishStory = async ( change, { params: { storyID } } ) => {
 	
 	if (someIn(changes,'featured','timestamp','thumbURLs','categoryID'))
 		setCategoryThumbURLs({
-			categoryID: after.categoryID,
+			categories: db.categories,
 			snippets: db.snippets,
+			categoryID: after.categoryID,
 		})
 }
 
@@ -93,32 +95,7 @@ exports.publishStory = async ( change, { params: { storyID } } ) => {
  * @param {string} obj.storyID 
  * @param {string[]} obj.changes
 */
-async function setMirrors({schemas,story,storyID}){
-	const mirrors = ['article','snippet']
-	if(story.notified) mirrors.push('notif')
-	for(const type of mirrors){
-		const schema = Object.keys(schemas[type])
-		if(someIn(schema,changes)) continue
-		const mirror = Object.fromEntries(
-			Object.entries(after).filter(([key])=>schema.includes(key))
-		)
-		setDb( [type+'s',storyID], mirror )
-	}
-	setDbLegacy(
-		await getPathLegacy(story.categoryID,storyID),
-		{
-			...Object.fromEntries(
-				Object.entries(after)
-				.filter(([key])=>key in schemas.legacy)
-				.map(([key,value]) => [schemas.legacy[key],value])
-			),
-			...{
-				hasHTML: true,
-			}
-		}
-	)
-}
- async function setMirrors({schemas,story,storyID,changes}){
+async function setMirrors({schemas,story,storyID,changes}){
 	const mirrors = ['article','snippet']
 	if(story.notified) mirrors.push('notif')
 	for(const type of mirrors){
@@ -129,6 +106,17 @@ async function setMirrors({schemas,story,storyID}){
 		)
 		setDb( [type+'s',storyID], mirror )
 	}
+	setDbLegacy(
+		await getPathLegacy(story.categoryID,storyID),
+		{
+			...Object.fromEntries(
+				Object.entries(story)
+				.filter(([key])=>key in schemas.legacy)
+				.map(([key,value]) => [schemas.legacy[key],value])
+			),
+			...{ hasHTML: true }
+		}
+	)
 }
 
 /**
@@ -139,8 +127,7 @@ async function setMirrors({schemas,story,storyID}){
  * @param {string} obj.categoryID 
  */
 async function setCategoryThumbURLs({categories,snippets,categoryID}){
-	const thumbURLs = categories[categoryID]
-	.articleIDs
+	const thumbURLs = (categories[categoryID].articleIDs || [])
 	.map( id => snippets[id] )
 	.filter( snippet => 'thumbURLs' in snippet ) // select articles with images
 	.sort( (a,b) => b.featured - a.featured ) // prioritize featured articles
