@@ -10,6 +10,7 @@ const { imgbb } = require('../utils/imgbb')
 
 const parser = new DOMParser()
 const turned = new Turndown()
+turned.remove('img')
 const parse_xml = str => parser.parseFromString(str)
 const html_to_md = html => turned.turndown(html)
 
@@ -38,7 +39,7 @@ exports.publishFeed = async () => {
 
 		for (const item of items.slice(0,12)) {
 			// temporary measure to stop categoryID write collisions
-			sleep(100)
+			await sleep(500)
 
 			let story = { }
 
@@ -60,7 +61,7 @@ exports.publishFeed = async () => {
 				...story,
 				categoryID: key,
 				timestamp: Math.trunc(Date.parse(story.date)/1000),
-				markdown: html_to_md(story.body.replace(/\<img.*?\>/g,''))+'\n\n'+feed.footer,
+				markdown: html_to_md(story.body)+'\n\n'+feed.footer,
 			}
 
 			// find image tags from the story
