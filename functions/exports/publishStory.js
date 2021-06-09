@@ -72,14 +72,14 @@ exports.publishStory = async ( change, { params: { storyID } } ) => {
 		})
 
 	// set thumbnails
-	if (someIn(changes,'categoryID'))
+	if (someIn(changes,'categoryID') && 'categoryID' in before)
 		setCategoryThumbURLs({
 			categories: db.categories,
 			snippets: db.snippets,
 			categoryID: before.categoryID,
 		})
 	
-	if (someIn(changes,'featured','timestamp','thumbURLs','categoryID'))
+	if (someIn(changes,'featured','timestamp','thumbURLs','categoryID') && 'categoryID' in after)
 		setCategoryThumbURLs({
 			categories: db.categories,
 			snippets: db.snippets,
@@ -154,6 +154,7 @@ async function setCategoryStoryIDs({categories,snippets,categoryID,storyID,inser
 	} else {
 		setDbLegacy(await getPathLegacy(categoryID,storyID),null)
 	}
+	console.log(JSON.stringify(storyIDs))
 	return setDb(['categories',categoryID,'articleIDs'],storyIDs)
 }
 

@@ -21,9 +21,7 @@ exports.publishFeed = async () => {
 	const feeds = await getDb('feeds')
 	const template = await templateFromSchema('input')
 
-	for (const key in feeds) {
-
-		const feed = feeds[key]
+	await Promise.all(Object.entries(feeds).map(async ([key,feed])=>{
 
 		const items = await fetch(feed.url)
 			// Get plaintext XML
@@ -37,9 +35,9 @@ exports.publishFeed = async () => {
 			// Get the individual entries
 			.then(xml => xml.getElementsByTagName(feed.item))
 
-		for (const item of items.slice(0,12)) {
+		for (const item of items.slice(0,8)) {
 			// temporary measure to stop categoryID write collisions
-			await sleep(500)
+			await sleep(1000)
 
 			let story = { }
 
@@ -54,13 +52,15 @@ exports.publishFeed = async () => {
 					new RegExp(`.{${~~(story.title.length/3)}}`,'g')
 			))
 
+			const before = await getDb(['inputs',storyID])
+			if(before) continue
+
 			// fill with template and older versions of the story
 			story = {
 				...template,
-				...await getDb(['inputs',storyID]) || {},
 				...story,
 				categoryID: key,
-				timestamp: Math.trunc(Date.parse(story.date)/1000),
+				timestamp: Math.floor((Date.parse(story.date)||Date.now())/1000),
 				markdown: html_to_md(story.body)+'\n\n'+feed.footer,
 			}
 
@@ -102,5 +102,5 @@ exports.publishFeed = async () => {
 			// publish
 			setDb(['inputs',storyID],story)
 		}
-	}
+	}))
 }
