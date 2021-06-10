@@ -1,7 +1,7 @@
 const { getDb } = require('./database')
 
-exports.templateFromSchema = async () => {
-	const schema = await getDb('schemas/story')
+exports.templateFromSchema = async source => {
+	const schema = await getDb('schemas/'+source)
 	const template = {}
 	for (const key in schema)
 		template[key] = {
