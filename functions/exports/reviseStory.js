@@ -1,5 +1,5 @@
 const { discord } = require('../utils/discord')
-const { getDb, setDb, setDbLegacy, getPathLegacy, auth } = require('../utils/database')
+const { getDb, setDb, auth } = require('../utils/database')
 const { diff, formattedDiff, someIn } = require('../utils/objects')
 const { getRelatedStoryIDs } = require('../utils/related')
 
@@ -8,7 +8,7 @@ const { getAverageColor } = require('fast-average-color-node')
 const sanitizeHTML = require('sanitize-html')
 const marked = require('marked')
 
-exports.reviseStory = async ( change, { params: { storyID }, authType, auth } ) => {
+exports.reviseStory = async ( change, { params: { storyID }, authType, auth: authInfo } ) => {
 
 	const before = change.before.val() || {}
 	const after = change.after.val() || {}
@@ -75,7 +75,7 @@ exports.reviseStory = async ( change, { params: { storyID }, authType, auth } ) 
 	const user = authType === 'ADMIN'
 	? 'Aces Cloud'
 	: authType === 'USER'
-	? await idToEmail(auth.uid)
+	? await auth.getUser(authInfo.uid).then(user=>user.email||'')
 	: 'Anonymous'
 	
 	discord({
@@ -85,15 +85,3 @@ exports.reviseStory = async ( change, { params: { storyID }, authType, auth } ) 
 		description: formattedDiff(before,after),
 	})
 }
-
-
-/**
- * Converts a user's ID into their email
- * @param {String} uid 
- * @returns {Promise<String>} email
- */
-async function idToEmail(uid){
-	const user = await auth.getUser(uid)
-	return user.email || ''
-}
-
