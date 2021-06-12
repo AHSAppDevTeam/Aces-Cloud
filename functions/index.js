@@ -12,4 +12,4 @@ exports.publishStory = database.instance('ahs-app').ref('/storys/{storyID}').onW
 exports.publishNotif = pubsub.schedule('*/5 * * * *').onRun(publishNotif)
 exports.publishFeed = pubsub.schedule('0 0 * * *').onRun(publishFeed)
 exports.emptyTrash = pubsub.schedule('0 0 * * *').onRun(emptyTrash)
-exports.incrementView = https.onRequest(incrementView)
+exports.incrementView = https.onCall(incrementView)

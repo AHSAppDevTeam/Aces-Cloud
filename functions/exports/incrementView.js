@@ -1,8 +1,8 @@
 const { getDb, setDb } = require('../utils/database')
 
-exports.incrementView = async ({ query: { id } }, { send }) => {
+exports.incrementView = async ({ id }) => {
 	const path = [ 'storys', id, 'views' ]
-	const view = await getDb( path ) + 1
-	setDb( path, view )
-	return send( view.toString() )
+	const views = await getDb( path ) + 1
+	setDb( path, views )
+	return { views }
 }
