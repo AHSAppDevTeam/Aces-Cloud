@@ -3,6 +3,8 @@ const { getDb, setDb, setDbLegacy, getPathLegacy, auth } = require('../utils/dat
 const { diff, formattedDiff, someIn } = require('../utils/objects')
 const { getRelatedStoryIDs } = require('../utils/related')
 
+const fetch = require('node-fetch')
+const { getAverageColor } = require('fast-average-color-node')
 const marked = require('marked')
 
 exports.reviseStory = async ( change, { params: { storyID }, authType, auth } ) => {
@@ -34,6 +36,14 @@ exports.reviseStory = async ( change, { params: { storyID }, authType, auth } ) 
 
 	if (someIn(changes,'categoryID'))
 		story.visible = db.categories[after.categoryID]?.visible
+
+	if (someIn(changes,'thumbURLs') && after.thumbURLs)
+		story.color = await fetch(after.thumbURLs[0])
+		.then(response=>response.blob())
+		.then(blob=>blob.arrayBuffer())
+		.then(array=>Buffer.from(array))
+		.then(buffer=>getAverageColor(buffer))
+		.then(color=>color.hex)
 
 	// find similar storys
 	if (someIn(changes,'title') && 'title' in after)
