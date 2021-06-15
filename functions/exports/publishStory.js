@@ -40,7 +40,8 @@ exports.publishStory = async ( change, { params: { storyID } } ) => {
 		setCategoryStoryIDs({
 			categories: db.categories,
 			snippets: db.snippets,
-			story: before,
+			categoryID: before.categoryID,
+			timestamp: before.timestamp,
 			storyID,
 			insert: false,
 		})
@@ -49,7 +50,8 @@ exports.publishStory = async ( change, { params: { storyID } } ) => {
 		setCategoryStoryIDs({
 			categories: db.categories,
 			snippets: db.snippets,
-			story: after,
+			categoryID: after.categoryID,
+			timestamp: after.timestamp,
 			storyID,
 			insert: true,
 		})
@@ -60,6 +62,7 @@ exports.publishStory = async ( change, { params: { storyID } } ) => {
 			categories: db.categories,
 			snippets: db.snippets,
 			categoryID: 'Featured',
+			timestamp: after.timestamp,
 			storyID,
 			insert: after.featured && after.visible,
 		})
@@ -145,17 +148,17 @@ async function setCategoryThumbURLs({categories,snippets,categoryID}){
  * @param {string} obj.storyID
  * @param {Boolean} obj.insert
  */
-async function setCategoryStoryIDs({categories,snippets,story,storyID,insert}){
-	let storyIDs = categories[story.categoryID].articleIDs || []
+async function setCategoryStoryIDs({categories,snippets,categoryID,timestamp,storyID,insert}){
+	let storyIDs = categories[categoryID].articleIDs || []
 	storyIDs = storyIDs.filter(id => id!==storyID && snippets[id])
 	if (insert) {
-		const index = storyIDs.findIndex(id=>snippets[id].timestamp < story.timestamp)
+		const index = storyIDs.findIndex(id=>snippets[id].timestamp < timestamp)
 		index < 0 ? storyIDs.push(storyID) : storyIDs.splice(index,0,storyID)
 	} else {
-		setDbLegacy(await getPathLegacy(story.categoryID,storyID),null)
+		setDbLegacy(await getPathLegacy(categoryID,storyID),null)
 	}
 	console.log(JSON.stringify(storyIDs))
-	return setDb(['categories',story.categoryID,'articleIDs'],storyIDs)
+	return setDb(['categories',categoryID,'articleIDs'],storyIDs)
 }
 
 /**
