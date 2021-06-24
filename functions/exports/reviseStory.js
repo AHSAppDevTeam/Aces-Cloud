@@ -36,7 +36,8 @@ exports.reviseStory = async ( change, { params: { storyID }, authType, auth: aut
 			  ],
 			  disallowedTagsMode: 'discard',
 			  allowedAttributes: {
-				a: [ 'href', 'name', 'target', 'title' ]
+				a: [ 'href', 'name', 'target', 'title' ],
+				td: [ 'width' ],
 			  },
 		})
 
