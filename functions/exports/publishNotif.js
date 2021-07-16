@@ -3,19 +3,29 @@ const { getDb, setDb } = require('../utils/database')
 const fetch = require('node-fetch')
 
 exports.publishNotif = async () => {
+
 	const now = Math.trunc(Date.now()/1000)
+
 	const sentNotifIDs = await getDb('notifIDs') || []
-	const allNotifs = Object.entries( await getDb('notifs') || {} )
-	const readyNotifs = allNotifs.filter(
-		([id, notif]) =>
+	const allNotifObjects = await getDb('notifs') || {}
+	const allNotifs = Object.entries(allNotifObjects)
+
+	const notifIsNotArchived = ([id, notif]) =>
+		notif.categoryID !== 'Archive'
+
+	const notifIsRecent = ([id, notif]) =>
 		!sentNotifIDs.includes(id)
 		&& notif.notifTimestamp <= now 
 		&& notif.notifTimestamp >= now - 60*60*24
-	)
-	const readyNotifIDs = readyNotifs.map(
-		([id, notif]) => id
-	)
+
+	const notif = id => ([id, allNotifObjects[id]])
+	const notifID = ([id, notif]) => id
+
+	const readyNotifs = allNotifs.filter(notifIsNotArchived).filter(notifIsRecent)
+	const readyNotifIDs = readyNotifs.map(notifID)
+
 	console.log(`saw ${readyNotifIDs.length} notifs ready to be sent`)
+
 	readyNotifs.forEach( ([id, notif]) => {
 		setDb( ['notifs',id,'notifTimestamp'], now )
 		pushNotif(id, notif)
@@ -27,7 +37,15 @@ exports.publishNotif = async () => {
 		})
 		console.log(`sent <${id}>: ${notif.title}`)
 	})
-	setDb( 'notifIDs', sentNotifIDs.concat(readyNotifIDs) )
+
+	setDb( 
+		'notifIDs', 
+		sentNotifIDs
+		.map(notif)
+		.filter(notifIsNotArchived)
+		.map(notifID)
+		.concat(readyNotifIDs)
+	)
 }
 
 /**
