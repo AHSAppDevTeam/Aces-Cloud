@@ -35,7 +35,7 @@ exports.publishFeed = async () => {
 			// Get the individual entries
 			.then(xml => xml.getElementsByTagName(feed.item))
 
-		for (const item of items.slice(0,8)) {
+		for (const item of items.slice(0,6)) {
 			// temporary measure to stop categoryID write collisions
 			await sleep(1000)
 
