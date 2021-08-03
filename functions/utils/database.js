@@ -15,6 +15,8 @@ const dbLegacy = admin.database(appLegacy).ref()
 const path = paths => Array.isArray(paths) ? paths.join('/') : paths
 
 exports.auth = admin.auth(app)
+exports.db = db
+exports.dbLegacy = dbLegacy
 exports.getDb = paths => db.child(path(paths)).get().then(snapshot=>snapshot.val())
 exports.setDb = (paths,val) => db.child(path(paths)).set(val)
 exports.setDbLegacy = (paths,val) => dbLegacy.child(path(paths)).set(val)
