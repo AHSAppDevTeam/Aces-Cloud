@@ -11,7 +11,7 @@ exports.redirectURL = async (req, res) => {
 	const from = req.url.substring(1).toLowerCase()
 	if ( from in shortcutURLs ) res.redirect(301, shortcutURLs[from])
 
-	res.status(404).end()
+	res.status(404).send('Not Found')
 }
 
 exports.shortenURL = async (req, res) => {
@@ -23,11 +23,11 @@ exports.shortenURL = async (req, res) => {
 		from.length < 4 // not unique enough
 		|| from.length > 512 // too much data
 		|| to.length > 512 // too much data
-	) res.status(400).send('400 Bad Request: Malformed inputs')
+	) res.status(400).send('Bad Request: Malformed inputs')
 
 	if (
 		from in shortcutURLs
-	) res.status(400).send('400 Bad Request: Shortcut already occupied')
+	) res.status(400).send('Bad Request: Shortcut already occupied')
 	
 	ref.child(from).set(to)
 	res.status(200).send('https://a.ahs.app/' + from)
