@@ -158,7 +158,10 @@ async function setCategoryStoryIDs({categories,snippets,categoryID,timestamp,sto
 		setDbLegacy(await getPathLegacy(categoryID,storyID),null)
 	}
 	console.log(JSON.stringify(storyIDs))
-	return setDb(['categories',categoryID,'articleIDs'],storyIDs)
+	return Promise.all([
+		setDb(['categories',categoryID,'timestamp'],snippets[storyIDs[0]]?.timestamp || timestamp),
+		setDb(['categories',categoryID,'articleIDs'],storyIDs),
+	])
 }
 
 /**
