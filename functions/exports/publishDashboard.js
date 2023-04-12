@@ -5,7 +5,7 @@ const DOMParser = require('dom-parser')
 
 const parser = new DOMParser()
 
-exports.publishCases = async () => {
+exports.publishDashboard = async () => {
 	const rows = await fetch('https://www.ausd.net/apps/pages/ArcadiaUnifiedCOVID19Dashboard')
 	.then(res=>res.text())
 	.then(text=>parser.parseFromString(text))
